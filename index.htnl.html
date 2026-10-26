@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Recursion Call Stack Simulator</title>
+<style>
+:root{
+  --bg:#0b0e14; --panel:#12161f; --panel-alt:#161b26; --border:#242b38;
+  --text:#e6e9f0; --muted:#7c8699; --amber:#f2a93b; --green:#3fd68e; --blue:#5b9bf2;
+  --amber-dim:#5a4420; --green-dim:#1c4a38; --blue-dim:#1d3a5c;
+  font-size:16px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--text);
+  font-family:ui-sans-serif,"Segoe UI",Arial,sans-serif;}
+body{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);}
+.mono{font-family:ui-monospace,"SFMono-Regular","JetBrains Mono",Consolas,monospace;}
+.wrap{max-width:1180px;margin:0 auto;padding:28px 20px 60px;}
+header{display:flex;flex-wrap:wrap;align-items:baseline;gap:10px 18px;margin-bottom:6px;}
+h1{font-size:1.55rem;font-weight:700;margin:0;letter-spacing:-0.01em;}
+.subtitle{color:var(--muted);font-size:.92rem;}
+.badge{font-size:.72rem;color:var(--muted);border:1px solid var(--border);border-radius:5px;
+  padding:2px 8px;margin-left:auto;}
+
+.controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:18px 0 22px;
+  background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px 16px;}
+.seg{display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;}
+.seg button{background:transparent;color:var(--muted);border:none;padding:8px 14px;
+  font-size:.86rem;cursor:pointer;font-weight:600;}
+.seg button.on{background:var(--amber);color:#1a1200;}
+label.small{font-size:.78rem;color:var(--muted);margin-right:4px;}
+input[type=number]{width:58px;background:var(--panel-alt);border:1px solid var(--border);
+  color:var(--text);border-radius:6px;padding:7px 8px;font-size:.9rem;}
+button.btn{background:var(--panel-alt);color:var(--text);border:1px solid var(--border);
+  border-radius:7px;padding:8px 13px;font-size:.84rem;cursor:pointer;font-weight:600;}
+button.btn:hover{border-color:var(--amber);}
+button.btn:disabled{opacity:.35;cursor:not-allowed;}
+button.primary{background:var(--amber);color:#1a1200;border-color:var(--amber);}
+input[type=range]{accent-color:var(--amber);width:100px;}
+.spacer{flex:1 1 auto;}
+
+.grid{display:grid;grid-template-columns:1fr 1.35fr;gap:16px;}
+@media(max-width:860px){.grid{grid-template-columns:1fr;}}
+.panel{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:16px;}
+.panel h2{font-size:.78rem;text-transform:none;letter-spacing:.02em;color:var(--muted);
+  margin:0 0 12px;font-weight:600;}
+
+#stackBox{display:flex;flex-direction:column-reverse;gap:6px;min-height:260px;
+  justify-content:flex-start;padding:4px;}
+.frame{border-radius:7px;padding:9px 12px;font-size:.82rem;border:1px solid var(--border);
+  background:var(--panel-alt);color:var(--muted);transition:all .25s ease;}
+.frame.active{border-color:var(--amber);background:var(--amber-dim);color:var(--text);
+  box-shadow:0 0 0 1px var(--amber);}
+.frame.base{border-color:var(--green);background:var(--green-dim);color:var(--text);}
+.frame .val{float:right;color:var(--muted);}
+.empty-note{color:var(--muted);font-size:.84rem;}
+
+#treeSvg{width:100%;height:280px;display:block;}
+.node-label{fill:var(--muted);font-size:11px;font-family:ui-monospace,monospace;}
+.node-val{fill:var(--text);font-size:11px;font-weight:700;font-family:ui-monospace,monospace;}
+
+.log{background:var(--panel);border:1px solid var(--border);border-radius:10px;
+  padding:14px 16px;margin-top:16px;height:150px;overflow-y:auto;font-size:.8rem;line-height:1.55;}
+.log div{color:var(--muted);}
+.log div.hi{color:var(--amber);}
+.log div.base{color:var(--green);}
+.log div.ret{color:var(--blue);}
+
+.stats{display:flex;gap:22px;margin-top:14px;flex-wrap:wrap;}
+.stat{font-size:.8rem;color:var(--muted);}
+.stat b{color:var(--text);font-size:1rem;display:block;}
+
+.code{margin-top:14px;font-size:.8rem;line-height:1.7;}
+.code .ln{padding:2px 8px;border-radius:5px;color:var(--muted);}
+.code .ln.hi{background:var(--amber-dim);color:var(--text);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Recursion Call Stack Simulator</h1>
+    <span class="subtitle">Data Structure — visualisasi call stack &amp; call tree</span>
+    <span class="badge">Claude</span>
+  </header>
+
+  <div class="controls">
+    <div class="seg" id="modeSeg">
+      <button data-mode="factorial" class="on">Factorial</button>
+      <button data-mode="fibonacci">Fibonacci</button>
+    </div>
+    <label class="small">n =</label>
+    <input type="number" id="nInput" value="5" min="0" max="10">
+    <button class="btn primary" id="runBtn">Run</button>
+    <button class="btn" id="prevBtn" disabled>&larr; Step</button>
+    <button class="btn" id="playBtn" disabled>&#9654; Play</button>
+    <button class="btn" id="nextBtn" disabled>Step &rarr;</button>
+    <button class="btn" id="resetBtn">Reset</button>
+    <div class="spacer"></div>
+    <label class="small">Speed</label>
+    <input type="range" id="speed" min="120" max="1200" value="500">
+  </div>
+
+  <div class="grid">
+    <div class="panel">
+      <h2>Call Stack</h2>
+      <div id="stackBox"><div class="empty-note">Belum ada pemanggilan. Tekan Run.</div></div>
+      <div class="code" id="codeBox"></div>
+    </div>
+    <div class="panel">
+      <h2>Call Tree</h2>
+      <svg id="treeSvg"></svg>
+      <div class="stats">
+        <div class="stat"><b id="statCalls">0</b>total pemanggilan</div>
+        <div class="stat"><b id="statDepth">0</b>kedalaman stack saat ini</div>
+        <div class="stat"><b id="statResult">—</b>hasil akhir</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="log mono" id="logBox"><div>Menunggu eksekusi...</div></div>
+</div>
+
+<script>
+const NS='http://www.w3.org/2000/svg';
+let mode='factorial', root=null, events=[], stepIndex=0, playTimer=null;
+let allNodes=[];
+
+function buildFactorial(n){
+  let counter=0;
+  function go(k){
+    const id=counter++;
+    if(k<=1) return {id,n:k,label:'factorial('+k+')',isBase:true,value:1,children:[]};
+    const c=go(k-1);
+    return {id,n:k,label:'factorial('+k+')',isBase:false,value:k*c.value,children:[c]};
+  }
+  return go(n);
+}
+function buildFibonacci(n){
+  let counter=0;
+  function go(k){
+    const id=counter++;
+    if(k<=1) return {id,n:k,label:'fib('+k+')',isBase:true,value:k,children:[]};
+    const l=go(k-1), r=go(k-2);
+    return {id,n:k,label:'fib('+k+')',isBase:false,value:l.value+r.value,children:[l,r]};
+  }
+  return go(n);
+}
+function flatten(node,out){ out.push(node); node.children.forEach(c=>flatten(c,out)); return out; }
+
+function layout(node){
+  let leafX=0;
+  function assign(n,depth){
+    n.y=depth;
+    if(n.children.length===0){ n.x=leafX; leafX+=1; return n.x; }
+    const xs=n.children.map(c=>assign(c,depth+1));
+    n.x=xs.reduce((a,b)=>a+b,0)/xs.length;
+    return n.x;
+  }
+  assign(node,0);
+}
+
+function genEvents(node,ev){
+  ev.push({type:'call',id:node.id,label:node.label,isBase:node.isBase});
+  if(node.isBase){ ev.push({type:'return',id:node.id,value:node.value,base:true,label:node.label}); return; }
+  node.children.forEach(c=>genEvents(c,ev));
+  ev.push({type:'return',id:node.id,value:node.value,base:false,label:node.label});
+}
+
+function computeState(upTo){
+  const stack=[], nodeState={}, log=[]; let calls=0, lastEvent=null;
+  for(let i=0;i<upTo;i++){
+    const e=events[i]; lastEvent=e;
+    if(e.type==='call'){
+      stack.push(e.id); calls++;
+      nodeState[e.id]='active';
+      log.push({cls:'hi',text:'call '+e.label});
+    } else {
+      stack.pop();
+      if(e.base){ nodeState[e.id]='base'; log.push({cls:'base',text:'base case '+e.label+' = '+e.value}); }
+      else { nodeState[e.id]='done'; log.push({cls:'ret',text:'return '+e.label+' = '+e.value}); }
+    }
+  }
+  if(stack.length){ nodeState[stack[stack.length-1]]='active'; }
+  return {stack,nodeState,log,calls,lastEvent};
+}
+
+function render(){
+  const st=computeState(stepIndex);
+  renderStack(st); renderTree(st); renderLog(st); renderStats(st); renderCode(st);
+  prevBtn.disabled = stepIndex<=0;
+  nextBtn.disabled = stepIndex>=events.length;
+  playBtn.disabled = stepIndex>=events.length;
+}
+
+function renderStack(st){
+  stackBox.innerHTML='';
+  if(st.stack.length===0){
+    stackBox.innerHTML='<div class="empty-note">'+(events.length? 'Stack kosong.' : 'Belum ada pemanggilan. Tekan Run.')+'</div>';
+    return;
+  }
+  st.stack.forEach((id,idx)=>{
+    const node=allNodes[id];
+    const div=document.createElement('div');
+    const isTop = idx===st.stack.length-1;
+    div.className='frame'+(isTop?' active':'');
+    div.innerHTML=node.label+'<span class="val">'+(isTop?'menunggu…':'')+'</span>';
+    stackBox.appendChild(div);
+  });
+}
+
+function renderTree(st){
+  const w=treeSvg.clientWidth||600, rows=Math.max(...allNodes.map(n=>n.y))+1;
+  const cols=Math.max(...allNodes.map(n=>n.x))+1;
+  const padX=30, padY=24, colW=(w-2*padX)/Math.max(cols,1), rowH=Math.min(60,(260-2*padY)/Math.max(rows,1));
+  treeSvg.setAttribute('viewBox','0 0 '+w+' '+(rowH*rows+2*padY));
+  treeSvg.innerHTML='';
+  // edges
+  allNodes.forEach(n=>{
+    n.children.forEach(c=>{
+      const x1=padX+n.x*colW+colW/2, y1=padY+n.y*rowH+14;
+      const x2=padX+c.x*colW+colW/2, y2=padY+c.y*rowH+14;
+      const line=document.createElementNS(NS,'line');
+      line.setAttribute('x1',x1);line.setAttribute('y1',y1);
+      line.setAttribute('x2',x2);line.setAttribute('y2',y2);
+      const called = st.nodeState[c.id]!==undefined;
+      line.setAttribute('stroke', called?'#3a4254':'#1c212c');
+      line.setAttribute('stroke-width','1.5');
+      treeSvg.appendChild(line);
+    });
+  });
+  // nodes
+  allNodes.forEach(n=>{
+    const cx=padX+n.x*colW+colW/2, cy=padY+n.y*rowH+14;
+    const g=document.createElementNS(NS,'g');
+    const circle=document.createElementNS(NS,'circle');
+    circle.setAttribute('cx',cx);circle.setAttribute('cy',cy);circle.setAttribute('r',13);
+    const state=st.nodeState[n.id];
+    let fill='#161b26', stroke='#242b38';
+    if(state==='active'){fill='#5a4420';stroke='#f2a93b';}
+    else if(state==='base'){fill='#1c4a38';stroke='#3fd68e';}
+    else if(state==='done'){fill='#1d3a5c';stroke='#5b9bf2';}
+    circle.setAttribute('fill',fill); circle.setAttribute('stroke',stroke); circle.setAttribute('stroke-width','1.6');
+    g.appendChild(circle);
+    const t=document.createElementNS(NS,'text');
+    t.setAttribute('x',cx);t.setAttribute('y',cy-18);t.setAttribute('text-anchor','middle');
+    t.setAttribute('class','node-label'); t.textContent=mode==='factorial'?n.n:n.n;
+    g.appendChild(t);
+    if(state==='base'||state==='done'){
+      const v=document.createElementNS(NS,'text');
+      v.setAttribute('x',cx);v.setAttribute('y',cy+4);v.setAttribute('text-anchor','middle');
+      v.setAttribute('class','node-val'); v.textContent=n.value;
+      g.appendChild(v);
+    }
+    treeSvg.appendChild(g);
+  });
+}
+
+function renderLog(st){
+  logBox.innerHTML='';
+  if(!st.log.length){ logBox.innerHTML='<div>Menunggu eksekusi...</div>'; return; }
+  st.log.forEach(l=>{
+    const d=document.createElement('div'); d.className=l.cls; d.textContent='> '+l.text;
+    logBox.appendChild(d);
+  });
+  logBox.scrollTop=logBox.scrollHeight;
+}
+
+function renderStats(st){
+  statCalls.textContent=st.calls;
+  statDepth.textContent=st.stack.length;
+  statResult.textContent = (stepIndex>=events.length && events.length) ? root.value : '—';
+}
+
+function renderCode(st){
+  const e=st.lastEvent;
+  const lines = mode==='factorial'
+    ? ['function factorial(n) {','  if (n <= 1) return 1;        // base case','  return n * factorial(n-1); // recursive call','}']
+    : ['function fib(n) {','  if (n <= 1) return n;                  // base case','  return fib(n-1) + fib(n-2);           // recursive call','}'];
+  let hiLine=-1;
+  if(e){
+    if(e.type==='call' && !e.isBase) hiLine=2;
+    else if(e.type==='return' && e.base) hiLine=1;
+    else if(e.type==='return' && !e.base) hiLine=2;
+  }
+  codeBox.innerHTML = lines.map((l,i)=>'<div class="ln'+(i===hiLine?' hi':'')+'">'+l+'</div>').join('');
+}
+
+function setup(){
+  const n=parseInt(nInput.value,10);
+  root = mode==='factorial' ? buildFactorial(n) : buildFibonacci(n);
+  layout(root);
+  allNodes=[]; flatten(root,allNodes).forEach(x=>allNodes[x.id]=x);
+  events=[]; genEvents(root,events);
+  stepIndex=0;
+  render();
+}
+
+modeSeg.addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(!b) return;
+  mode=b.dataset.mode;
+  [...modeSeg.children].forEach(c=>c.classList.toggle('on',c===b));
+  nInput.max = mode==='factorial'?10:8;
+  if(parseInt(nInput.value,10) > +nInput.max) nInput.value=nInput.max;
+  stopPlay(); events=[]; stepIndex=0; root=null;
+  stackBox.innerHTML='<div class="empty-note">Belum ada pemanggilan. Tekan Run.</div>';
+  treeSvg.innerHTML=''; logBox.innerHTML='<div>Menunggu eksekusi...</div>';
+  statCalls.textContent='0'; statDepth.textContent='0'; statResult.textContent='—'; codeBox.innerHTML='';
+  prevBtn.disabled=nextBtn.disabled=playBtn.disabled=true;
+});
+runBtn.addEventListener('click',()=>{ stopPlay(); setup(); });
+nextBtn.addEventListener('click',()=>{ if(stepIndex<events.length){stepIndex++; render();} });
+prevBtn.addEventListener('click',()=>{ if(stepIndex>0){stepIndex--; render();} });
+resetBtn.addEventListener('click',()=>{ stopPlay(); stepIndex=0; if(events.length) render(); });
+playBtn.addEventListener('click',()=>{
+  if(playTimer){ stopPlay(); return; }
+  playBtn.textContent='⏸ Pause';
+  playTimer=setInterval(()=>{
+    if(stepIndex>=events.length){ stopPlay(); return; }
+    stepIndex++; render();
+  }, 1300-speed.value*1);
+});
+function stopPlay(){ clearInterval(playTimer); playTimer=null; playBtn.textContent='▶ Play'; }
+
+window.addEventListener('resize',()=>{ if(events.length) render(); });
+</script>
+</body>
+</html>
